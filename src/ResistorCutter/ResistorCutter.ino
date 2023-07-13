@@ -28,7 +28,7 @@ void loop() {
 
 void printStuff(bool state) {
     Serial.printf("Button pressed! Machine is %s.", interface.getRunning() ? "on" : "off");
-    if(state) Serial.printf(" Cutting groups of %d resistors for %d kits.", interface.getResistorsPerKit(), interface.getKits());
+    if(state) Serial.printf(" Cutting groups of %d resistors for %d kits.\n", interface.getResistorsPerKit(), interface.getKits());
     else Serial.println();
 
     for(int i = 0; i <= 100; i++) {
