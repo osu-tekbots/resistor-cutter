@@ -1,5 +1,5 @@
 /*
- * Functionality for displaying data on a Nokia 5110
+ * Functionality for reading input from a SMAKN Fr4 Ky-023 joystick
  *
  * Nathaniel Baird
  * bairdn@oregonstate.edu
