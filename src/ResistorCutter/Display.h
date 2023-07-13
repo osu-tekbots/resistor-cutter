@@ -1,5 +1,5 @@
 /*
- * Functionality for displaying data on a Nokia 5110
+ * Functionality for displaying data on a Nokia 5110 LCD display
  *
  * Nathaniel Baird
  * bairdn@oregonstate.edu
