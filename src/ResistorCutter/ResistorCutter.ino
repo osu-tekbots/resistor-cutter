@@ -10,20 +10,26 @@
 
 #include "pins.h"       // List of all pin connections
 #include "Interface.h"  // For I/O using the LCD and joystick
+#include "LocalHost.h"  // For sending info to connected devices
 
 Interface interface(CLK_PIN, DIN_PIN, DC_PIN, CE_PIN, RST_PIN, VRx_PIN, VRy_PIN, SW_PIN);
+LocalHost localHost;
 
 void printStuff(bool state);
 
 void setup() {
     Serial.begin(115200);
     while(!Serial); // Wait for serial port to connect
+    Serial.println("\n\nResistor cutter, compiled " __DATE__ " " __TIME__ " by bairdn");
+
+    localHost.setup();
 
     interface.setButtonListener(printStuff);
 }
 
 void loop() {
     interface.update();
+    localHost.update();
 }
 
 void printStuff(bool state) {
