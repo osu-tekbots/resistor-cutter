@@ -5,7 +5,7 @@
  * bairdn@oregonstate.edu
  *
  * Started:      07/11/2023
- * Last updated: 07/11/2023
+ * Last updated: 07/18/2023
  */
 
 /***********************************************************************************************************\
@@ -40,7 +40,12 @@ class Display {
             display.setTextSize(1);
         }
 
-        void updateAll(int highlightNum, int rPerKit, int kits, int percent, bool running) {
+        void updateAll(int highlightNum, int rPerKit, int kits, int percent, int running) {
+            if(running == 2) {
+                showPaused();
+                return;
+            }
+
             display.clearDisplay();
 
             printLn1(rPerKit, highlightNum == 0, running);
@@ -58,10 +63,10 @@ class Display {
             
             if(!running) {
                 if(highlighted) {
-                    display.fillRect(64, 0, 16, 11, BLACK);
+                    display.fillRect(64, 0, 15, 11, BLACK);
                     display.setTextColor(WHITE, BLACK); // invert text
                 } else {
-                    display.drawRect(64, 0, 16, 11, BLACK);
+                    display.drawRect(64, 0, 15, 11, BLACK);
                     display.setTextColor(BLACK);
                 }
             }
@@ -69,7 +74,7 @@ class Display {
             if(number < 10) {
                 display.setCursor(69, 2);
             } else {
-                display.setCursor(66, 2);
+                display.setCursor(65, 2);
             }
             display.print(number);
             
@@ -166,6 +171,24 @@ class Display {
                 display.print("Start");
             }
             
+            display.display();
+        }
+
+        void showPaused() {
+            display.clearDisplay();
+
+            display.setTextColor(BLACK);
+            display.setTextSize(2);
+            
+            display.setCursor(7, 0);
+            display.print("PAUSED");
+
+            display.drawLine(0, 15, 84, 15, BLACK);
+
+            display.setTextSize(1);
+            display.setCursor(0, 17);
+            display.print("Safety switch flipped;      please resolve\nthe issue!");
+
             display.display();
         }
 };

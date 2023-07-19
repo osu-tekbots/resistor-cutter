@@ -5,7 +5,7 @@
  * bairdn@oregonstate.edu
  *
  * Started:      07/12/2023
- * Last updated: 07/12/2023
+ * Last updated: 07/18/2023
  */
 
 class Joystick {
@@ -22,23 +22,23 @@ class Joystick {
         }
         
         bool getSwitch() {
-            return !digitalRead(SW_PIN);
+            return !digitalRead(sw);
         }
 
         bool getLeft() {
-            return analogRead(VRx_PIN) < 0 + 500;
+            return analogRead(vrX) < 0 + 500;
         }
 
         bool getRight() {
-            return analogRead(VRx_PIN) > 4095 - 500;
+            return analogRead(vrX) > 4095 - 500;
         }
 
         bool getUp() {
-            return analogRead(VRy_PIN) < 0 + 500;
+            return analogRead(vrY) < 0 + 500;
         }
 
         bool getDown() {
-            return analogRead(VRy_PIN) > 4095 - 500;
+            return analogRead(vrY) > 4095 - 500;
         }
 
         bool getUncentered() {

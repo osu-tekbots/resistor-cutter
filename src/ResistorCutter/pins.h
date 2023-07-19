@@ -19,3 +19,6 @@
 #define SW_PIN  32
 #define VRx_PIN 34
 #define VRy_PIN 35
+
+// Techpushbutton safety interrupt button
+#define SAFE_PIN 13
