@@ -120,6 +120,14 @@ class Webpages {
         int rPerKit, kits, percent, running;
     
     public:
+        /**
+         * @brief Initialization allows the webpages to accurately display information from the moment they're first created
+         * 
+         * @param rPerKit How many resistors per kit are currently wanted
+         * @param kits    How many kits are currently wanted
+         * @param percent If running, the percentage of the job that is complete
+         * @param running The current running state (see Interface.h)
+         */
         Webpages(int rPerKit = 0, int kits = 0, int percent = 0, int running = 0) {
             this->rPerKit = rPerKit;
             this->kits = kits;
@@ -127,27 +135,54 @@ class Webpages {
             this->running = running;
         }
         
+        /**
+         * @param rPerKit How many resistors per kit are currently wanted
+         */
         void setRPerKit(int rPerKit) {
             this->rPerKit = rPerKit;
         }
+        /**
+         * @param kits    How many kits are currently wanted
+         */
         void setKits(int kits) {
             this->kits = kits;
         }
+        /**
+         * @param running The current running state (see Interface.h)
+         */
         void setRunning(int running) {
             this->running = running;
         }
+        /**
+         * @param percent If running, the percentage of the job that is complete
+         */
         void setPercent(int percent) {
             this->percent = percent;
         }
 
+        /**
+         * @return The HTML needed to generate the captive portal
+         */
         const char* getCaptiveHTML() {
             return captiveHTML;
         }
 
+        /**
+         * @return The HTML needed to resolve the captive portal
+         *
+         * @note This is particularly necessary on iOS, to change the "cancel" button to a "Done" 
+         *           button after the portal has been generated
+         */
         const char* getSuccessHTML() {
             return successHTML;
         }
 
+        /**
+         * @return The filled HTML for the main status page
+         *
+         * @note This fills the mainHTML const with the data (eg rPerKit, running, etc) currently saved
+         *           in THIS CLASS, NOT Interface.h
+         */
         const char* getMainHTML() {
             static std::string htmlCopy;
             size_t index = 0;
