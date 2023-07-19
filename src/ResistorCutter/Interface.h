@@ -5,7 +5,7 @@
  * bairdn@oregonstate.edu
  *
  * Started:      07/12/2023
- * Last updated: 07/12/2023
+ * Last updated: 07/18/2023
  */
 
 #include "Display.h"      // For LCD screen
