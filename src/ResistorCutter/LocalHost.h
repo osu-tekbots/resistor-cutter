@@ -12,10 +12,22 @@
  * Last updated: 07/13/2023
  */
 
+/* UPDATE: functionality built into server API: https://github.com/me-no-dev/ESPAsyncWebServer#async-websocket-plugin
+ *
+ * TODO: check out WebSockets for live updates
+ * https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers
+ * https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications
+ *
+ * Handshake requires SHA-1 hash and base64 encoding:
+ * https://github.com/espressif/arduino-esp32/blob/03f5d62323f238552de57e91b48cff41a7a7009c/tools/sdk/include/mbedtls/mbedtls/sha1.h
+ * https://github.com/espressif/arduino-esp32/blob/03f5d62323f238552de57e91b48cff41a7a7009c/tools/sdk/include/mbedtls/mbedtls/base64.h
+ */
+
 #include <AsyncTCP.h>          // --- https://github.com/me-no-dev/AsyncTCP using the latest dev version from @me-no-dev
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h> // --- https://github.com/me-no-dev/ESPAsyncWebServer using the latest dev version from @me-no-dev
 #include <esp_wifi.h>		   // --- Used for mpdu_rx_disable android workaround
+#include "esp32-hal-timer.h"   // Used for timer interrupt to automatically update DNS server
 #include "Webpages.h"
 
 // --- Pre reading on the fundamentals of captive portals https://textslashplain.com/2022/06/24/captive-portals/
@@ -41,6 +53,11 @@ class LocalHost {
         bool portalOpened;
 
         Webpages webpages;
+
+        static void handleUpdateTimer(void *thisArg) {
+            LocalHost *obj = (LocalHost *)thisArg;
+            obj->update();
+        }
     
         // Credit: CD_FER
         void setUpDNSServer(DNSServer &dnsServer, const IPAddress &localIP) {
@@ -90,10 +107,7 @@ class LocalHost {
             // --- A Tier (commonly used by modern systems)
             server.on("/generate_204", [&](AsyncWebServerRequest *request) { request->redirect(localIPURL); });		   // --- android captive portal redirect
             server.on("/redirect", [&](AsyncWebServerRequest *request) { request->redirect(localIPURL); });			   // --- microsoft redirect
-            server.on("/hotspot-detect.html", [&](AsyncWebServerRequest *request) { 
-                Serial.println("\"/hotspot-detect.html\" called");
-                request->redirect(localIPURL); 
-            });  // --- apple call home
+            server.on("/hotspot-detect.html", [&](AsyncWebServerRequest *request) { request->redirect(localIPURL); }); // --- apple call home
             server.on("/canonical.html", [&](AsyncWebServerRequest *request) { request->redirect(localIPURL); });	   // --- firefox captive portal call home
             server.on("/success.txt", [&](AsyncWebServerRequest *request) { request->send(200); });					   // --- firefox captive portal call home
             server.on("/ncsi.txt", [&](AsyncWebServerRequest *request) { request->redirect(localIPURL); });			   // --- windows call home
@@ -116,21 +130,22 @@ class LocalHost {
         }
         
         void processRequest(AsyncWebServerRequest *request) {
-            Serial.println("Recieved HTTP request");
-            Serial.print("Requested host: ");
-            Serial.print(request->host());
-            Serial.print("; URL requested: ");
-            Serial.print(request->url());
-            Serial.print("; Parameters:\n");
+            log_d("Recieved HTTP request");
+            log_d("Requested host: ");
+            log_d(request->host());
+            log_d("; URL requested: ");
+            log_d(request->url());
+            log_d("; Parameters:\n");
 
             if(request->host().indexOf("citrix") > -1) {
                 request->send(404);
                 return;
-            }
+            } // Tell Citrix there's no connection
 
             for(int i = 0; i < request->params(); i++) {
-                AsyncWebParameter* p = request->getParam(i);
-                Serial.printf("    Name: %s; Value: %s", p->name().c_str(), p->value().c_str());
+                AsyncWebParameter* param = request->getParam(i);
+                log_d("    Name: %s; Value: %s", param->name().c_str(), param->value().c_str());
+                param->name(); // Needed to prove to the IDE that `param` is used
             }
 
             if(request->hasParam("redirect")) {
@@ -138,18 +153,22 @@ class LocalHost {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getMainHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                Serial.println("Served Main HTML Page\n");
+                log_i("Served Main HTML Page\n");
             } else if(portalOpened) {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getSuccessHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                Serial.println("Served Success HTML Page\n");
+                log_i("Served Success HTML Page\n");
             } else {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getCaptiveHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                Serial.println("Served Captive HTML Page\n");
+                log_i("Served Captive HTML Page\n");
             }
+        }
+
+        void update() {
+            dnsServer.processNextRequest();	 // --- I call this atleast every 10ms in my other projects (can be higher but I haven't tested it for stability)
         }
 
     public:
@@ -165,9 +184,25 @@ class LocalHost {
 
             setUpWebserver(server, localIP);
             server.begin();
+
+            WiFi.onEvent([&](WiFiEvent_t event, WiFiEventInfo_t info) {portalOpened = false;}, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
+
+            // Use timer interrupt to allow 'set and forget' behavior while still processing DNS requests on time
+            esp_timer_handle_t dnsTimer;
+            esp_timer_create_args_t timerConfig;
+            timerConfig.arg = this;
+            timerConfig.callback = reinterpret_cast<esp_timer_cb_t>(handleUpdateTimer);
+            timerConfig.dispatch_method = ESP_TIMER_TASK;
+            timerConfig.name = "DNS_Timer";
+            esp_timer_create(&timerConfig, &dnsTimer);
+            esp_timer_start_periodic(dnsTimer, 20000); // Call update() to update dnsServer every 20ms
+            // CREDIT/INFO: https://github.com/espressif/arduino-esp32/issues/8422
         }
 
-        void update() {
-            dnsServer.processNextRequest();	 // --- I call this atleast every 10ms in my other projects (can be higher but I haven't tested it for stability)
+        void updatePageInfo(int rPerKit, int kits, int running, int percent = -1) {
+            webpages.setRPerKit(rPerKit);
+            webpages.setKits(kits);
+            webpages.setRunning(running);
+            if(percent != -1) webpages.setPercent(percent);
         }
 };
