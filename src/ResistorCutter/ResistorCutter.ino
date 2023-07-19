@@ -11,9 +11,10 @@
 #include "pins.h"       // List of all pin connections
 #include "Interface.h"  // For I/O using the LCD and joystick
 
-Interface interface(CLK_PIN, DIN_PIN, DC_PIN, CE_PIN, RST_PIN, VRx_PIN, VRy_PIN, SW_PIN);
+Interface interface(CLK_PIN, DIN_PIN, DC_PIN, CE_PIN, RST_PIN, VRx_PIN, VRy_PIN, SW_PIN, SAFE_PIN);
 
 void printProgress(bool state);
+void checkPause(void);
 
 void setup() {
     Serial.begin(115200);
@@ -26,6 +27,20 @@ void setup() {
 
 void loop() {
     interface.update();
+
+    checkPause();
+}
+
+void checkPause(void) {
+    if(Serial.available()) {
+        String input = Serial.readStringUntil('\n');
+
+        if(input.equalsIgnoreCase("pause")) {
+            interface.setPausedStatus(true);
+        } else if(input.equalsIgnoreCase("resume")) {
+            interface.setPausedStatus(false);
+        }
+    }
 }
 
 void printProgress(bool state) {
@@ -35,6 +50,10 @@ void printProgress(bool state) {
 
     for(int i = 0; i <= 100; i++) {
         interface.update(i);// call function to update completion bar
+
+        if(interface.getRunning() == 2) i--;
+        checkPause();
+
         delay(50);
     }
 }
