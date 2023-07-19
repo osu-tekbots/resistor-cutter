@@ -80,6 +80,10 @@ class Webpages {
                             background: #ff9898;
                         }
 
+                        .paused {
+                            background: #ffcc98;
+                        }
+
                         #data {
                             border: 2px solid black;
                             border-radius: 8px;
@@ -113,11 +117,10 @@ class Webpages {
             </html>
             )=====";
 
-        int rPerKit, kits, percent;
-        bool running;
+        int rPerKit, kits, percent, running;
     
     public:
-        Webpages(int rPerKit = 0, int kits = 0, int percent = 0, bool running = false) {
+        Webpages(int rPerKit = 0, int kits = 0, int percent = 0, int running = 0) {
             this->rPerKit = rPerKit;
             this->kits = kits;
             this->percent = percent;
@@ -130,7 +133,7 @@ class Webpages {
         void setKits(int kits) {
             this->kits = kits;
         }
-        void setRunning(bool running) {
+        void setRunning(int running) {
             this->running = running;
         }
         void setPercent(int percent) {
@@ -158,10 +161,10 @@ class Webpages {
             if(index != std::string::npos) htmlCopy.replace(index, strlen("{{kits}}"), String(kits).c_str());
             
             index = htmlCopy.find("{{cuttingClass}}");
-            if(index != std::string::npos) htmlCopy.replace(index, strlen("{{cuttingClass}}"), running ? "cutting" : "notCutting");
+            if(index != std::string::npos) htmlCopy.replace(index, strlen("{{cuttingClass}}"), running == 1 ? "cutting" : running == 0 ? "notCutting" : "paused");
             
             index = htmlCopy.find("{{cuttingText}}");
-            if(index != std::string::npos) htmlCopy.replace(index, strlen("{{cuttingText}}"), running ? "Cutting" : "Not Cutting");
+            if(index != std::string::npos) htmlCopy.replace(index, strlen("{{cuttingText}}"), running == 1 ? "Cutting" : running == 0 ? "Not Cutting" : "Paused");
 
             return htmlCopy.c_str();
         }
