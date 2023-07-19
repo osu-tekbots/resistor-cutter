@@ -12,15 +12,16 @@
  * Last updated: 07/18/2023
  */
 
-/* UPDATE: functionality built into server API: https://github.com/me-no-dev/ESPAsyncWebServer#async-websocket-plugin
- *
- * TODO: check out WebSockets for live updates
+/**
+ * @todo check out WebSockets for live updates
  * https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers
  * https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications
  *
  * Handshake requires SHA-1 hash and base64 encoding:
  * https://github.com/espressif/arduino-esp32/blob/03f5d62323f238552de57e91b48cff41a7a7009c/tools/sdk/include/mbedtls/mbedtls/sha1.h
  * https://github.com/espressif/arduino-esp32/blob/03f5d62323f238552de57e91b48cff41a7a7009c/tools/sdk/include/mbedtls/mbedtls/base64.h
+ *
+ * @note found functionality built into server API: https://github.com/me-no-dev/ESPAsyncWebServer#async-websocket-plugin
  */
 
 #include <AsyncTCP.h>          // --- https://github.com/me-no-dev/AsyncTCP using the latest dev version from @me-no-dev
@@ -42,11 +43,11 @@
 
 class LocalHost {
     private: 
-        const IPAddress localIP;		   // the IP address the web server, Samsung requires the IP to be in public space
-        const IPAddress gatewayIP;		   // IP address of the network should be the same as the local IP for captive portals
-        const IPAddress subnetMask;  // no need to change: https://avinetworks.com/glossary/subnet-mask/
+        const IPAddress localIP;    // --- the IP address the web server, Samsung requires the IP to be in public space
+        const IPAddress gatewayIP;  // --- IP address of the network should be the same as the local IP for captive portals
+        const IPAddress subnetMask; // --- no need to change: https://avinetworks.com/glossary/subnet-mask/
 
-        const String localIPURL;	 // a string version of the local IP with http, used for redirecting clients to your webpage
+        const String localIPURL;	 // --- a string version of the local IP with http, used for redirecting clients to your webpage
 
         DNSServer dnsServer;
         AsyncWebServer server;
@@ -54,19 +55,44 @@ class LocalHost {
 
         Webpages webpages;
 
+        /**
+         * @brief Calls the correct object's update() method
+         * 
+         * @note Timer interrupt callback requires a static fn when calling a class method, but allows passing `this`
+         *
+         * @param thisArg The object `this` to call the update() method for
+         */
         static void handleUpdateTimer(void *thisArg) {
             LocalHost *obj = (LocalHost *)thisArg;
             obj->update();
         }
     
-        // Credit: CD_FER
+        /**
+         * @author CD_FER
+         *
+         * @brief Sets initial setings for the DNS server, forwarding all traffic to the specified IP address
+         *
+         * @note Necessary for redirecting the initial (captive-portal-checking) request
+         *
+         * @param dnsServer The DNSServer object to set up
+         * @param localIP   The IP address to forward all traffic to
+         */
         void setUpDNSServer(DNSServer &dnsServer, const IPAddress &localIP) {
             // --- Set the TTL for DNS response and start the DNS server
             dnsServer.setTTL(3600);
             dnsServer.start(53, "*", localIP);
         }
 
-        // Credit: CD_FER
+        /**
+         * @author CD_FER
+         *
+         * @brief Sets up the WiFi AP
+         *
+         * @param ssid      The WiFi AP's name
+         * @param password  The password needed to connect to the AP
+         * @param localIP   The IP address to configure the AP with
+         * @param gatewayIP The IP address to configure the AP with
+         */
         void startSoftAccessPoint(const char *ssid, const char *password, const IPAddress &localIP, const IPAddress &gatewayIP) {
             // --- Set the WiFi mode to access point
             WiFi.mode(WIFI_MODE_AP);
@@ -91,7 +117,14 @@ class LocalHost {
 
         }
 
-        // Credit: CD_FER
+        /** 
+         * @author CD_FER
+         *
+         * @brief Sets up the web server to respond to various requests (mostly to generate a captive portal)
+         *
+         * @param server  The web server object to connect event listeners to
+         * @param localIP The IP address to forward captive-portal-detecting traffic to
+         */
         void setUpWebserver(AsyncWebServer &server, const IPAddress &localIP) {
             // --- ======================== Webserver ========================
             // --- WARNING IOS (and maybe macos) WILL NOT POP UP IF IT CONTAINS THE WORD "Success" https://www.esp8266.com/viewtopic.php?f=34&t=4398
@@ -128,14 +161,38 @@ class LocalHost {
                 Serial.print(" sent redirect to " + localIPURL + "\n");
             });
         }
+
+        /**
+         * @brief Sets a timer interrupt to update the DNS server every 20ms
+         *
+         * @note Allows "set and forget" treatment while still updating the DNS server
+         */
+        void setUpTimerInterrupt() {
+            // CREDIT/INFO: https://github.com/espressif/arduino-esp32/issues/8422
+            esp_timer_handle_t dnsTimer;
+            esp_timer_create_args_t timerConfig;
+            timerConfig.arg = this;
+            timerConfig.callback = reinterpret_cast<esp_timer_cb_t>(handleUpdateTimer);
+            timerConfig.dispatch_method = ESP_TIMER_TASK;
+            timerConfig.name = "DNS_Timer";
+            esp_timer_create(&timerConfig, &dnsTimer);
+            esp_timer_start_periodic(dnsTimer, 20000); // Call update() to update dnsServer every 20ms
+        }
         
+        /**
+         * @brief Processes client requests & sends the appropriate HTML page response
+         *
+         * @note Sends the pages to generate & resolve the captive portal, & display the main status page
+         *
+         * @param request The object containing info about the request to respond to
+         */
         void processRequest(AsyncWebServerRequest *request) {
-            log_d("Recieved HTTP request");
-            log_d("Requested host: ");
-            log_d(request->host());
-            log_d("; URL requested: ");
-            log_d(request->url());
-            log_d("; Parameters:\n");
+            log_v("Recieved HTTP request");
+            log_v("Requested host: ");
+            log_v(request->host());
+            log_v("; URL requested: ");
+            log_v(request->url());
+            log_v("; Parameters:\n");
 
             if(request->host().indexOf("citrix") > -1) {
                 request->send(404);
@@ -144,7 +201,7 @@ class LocalHost {
 
             for(int i = 0; i < request->params(); i++) {
                 AsyncWebParameter* param = request->getParam(i);
-                log_d("    Name: %s; Value: %s", param->name().c_str(), param->value().c_str());
+                log_v("    Name: %s; Value: %s", param->name().c_str(), param->value().c_str());
                 param->name(); // Needed to prove to the IDE that `param` is used
             }
 
@@ -153,30 +210,43 @@ class LocalHost {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getMainHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                log_i("Served Main HTML Page\n");
+                log_d("Served Main HTML Page\n");
             } else if(portalOpened) {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getSuccessHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                log_i("Served Success HTML Page\n");
+                log_d("Served Success HTML Page\n");
             } else {
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/html", webpages.getCaptiveHTML());
                 response->addHeader("Cache-Control", "public,no-store");  // don't save this file to cache
                 request->send(response);
-                log_i("Served Captive HTML Page\n");
+                log_d("Served Captive HTML Page\n");
             }
         }
 
+        /**
+         * @brief Allows the DNS server to process its next request
+         */
         void update() {
             dnsServer.processNextRequest();	 // --- I call this atleast every 10ms in my other projects (can be higher but I haven't tested it for stability)
         }
 
     public:
-        LocalHost() : localIP(4, 3, 2, 1), gatewayIP(4, 3, 2, 1), subnetMask(255, 255, 255, 0), localIPURL("http://4.3.2.1/"), server(80) {
-            portalOpened = false;
+        LocalHost() : localIP(4, 3, 2, 1), gatewayIP(4, 3, 2, 1), subnetMask(255, 255, 255, 0), 
+            localIPURL("http://4.3.2.1/"), server(80) {
+                portalOpened = false;
         }
 
-        // WARNING: Setup fn is MANDATORY to prevent obscure issues when setting up WiFi AP
+        /**
+         * @brief Sets up everything that can't happen in the constructor:
+         *     - Starts the WiFi AP
+         *     - Starts the DNS server
+         *     - Starts the web server
+         *     - Sets the event handlers
+         *     - Sets a timer interrupt to update the DNS server
+         *
+         * @warning Setup fn is MANDATORY & MUST be run AFTER the .ino setup() fn begins to prevent obscure issues when setting up WiFi AP
+         */
         void setup() {
             startSoftAccessPoint(SSID, PASSWORD, localIP, gatewayIP);
 
@@ -187,18 +257,17 @@ class LocalHost {
 
             WiFi.onEvent([&](WiFiEvent_t event, WiFiEventInfo_t info) {portalOpened = false;}, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
 
-            // Use timer interrupt to allow 'set and forget' behavior while still processing DNS requests on time
-            esp_timer_handle_t dnsTimer;
-            esp_timer_create_args_t timerConfig;
-            timerConfig.arg = this;
-            timerConfig.callback = reinterpret_cast<esp_timer_cb_t>(handleUpdateTimer);
-            timerConfig.dispatch_method = ESP_TIMER_TASK;
-            timerConfig.name = "DNS_Timer";
-            esp_timer_create(&timerConfig, &dnsTimer);
-            esp_timer_start_periodic(dnsTimer, 20000); // Call update() to update dnsServer every 20ms
-            // CREDIT/INFO: https://github.com/espressif/arduino-esp32/issues/8422
+            setUpTimerInterrupt();
         }
 
+        /**
+         * @brief Passes updated values to Webpages.h to update the next-generated status page's data
+         *
+         * @param rPerKit How many resistors per kit are currently wanted
+         * @param kits    How many kits are currently wanted
+         * @param running The current running state (see Interface.h)
+         * @param percent If running, the percentage of the job that is complete
+         */
         void updatePageInfo(int rPerKit, int kits, int running, int percent = -1) {
             webpages.setRPerKit(rPerKit);
             webpages.setKits(kits);
