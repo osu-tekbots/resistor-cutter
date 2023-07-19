@@ -14,6 +14,9 @@ class SafetySwitch {
         bool   prevState;
 
     public:
+        /**
+         * @param pin The ESP32 pin connected to the safety interlock switch
+         */
         SafetySwitch(int8_t pin) {
             this->pin = pin;
 
@@ -22,10 +25,18 @@ class SafetySwitch {
             prevState = !digitalRead(pin);
         }
         
+        /**
+         * @return Whether the switch is pressed
+         */
         bool getSwitch() {
             return digitalRead(pin);
         }
 
+        /**
+         * @todo Change to allow calling from different places (using calling ID param)
+         *
+         * @return Whether the switch state has changed since the function was last called
+         */
         bool getChange() {
             bool currentState = digitalRead(pin);
 
