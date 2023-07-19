@@ -35,11 +35,27 @@ class Display {
         Adafruit_PCD8544 display;
 
     public:
+        /**
+         * @param sclk The ESP32 pin connected to the Nokia display's CLK pin
+         * @param din  The ESP32 pin connected to the Nokia display's DIN pin
+         * @param dc   The ESP32 pin connected to the Nokia display's DC pin
+         * @param cs   The ESP32 pin connected to the Nokia display's CE pin
+         * @param rst  The ESP32 pin connected to the Nokia display's RST pin
+         */
         Display(int8_t sclk, int8_t din, int8_t dc, int8_t cs, int8_t rst) : display(sclk, din, dc, cs, rst) {
             display.begin();
             display.setTextSize(1);
         }
 
+        /**
+         * @brief Updates all parts of the Nokia display to reflect the machine's current state
+         *
+         * @param highlightNum Which input is highlighted/selected (eg # inputs, buttons, etc)
+         * @param rPerKit      How many resistors per kit are currently wanted
+         * @param kits         How many kits are currently wanted
+         * @param percent      If running, the percentage of the job that is complete
+         * @param running      The current running state (see Interface.h)
+         */
         void updateAll(int highlightNum, int rPerKit, int kits, int percent, int running) {
             if(running == 2) {
                 showPaused();
@@ -54,6 +70,15 @@ class Display {
             printButton(highlightNum == 2, running);
         }
 
+        /** 
+         * @brief Updates the first line of the UI (rPerKit)
+         *
+         * @note Usually just called by updateAll(), but also allows greater control over what is changed
+         *
+         * @param number      The number to display as the user input (for rPerKit)
+         * @param highlighted Whether the input on this line should be highlighted (showing it's selected)
+         * @param running     Whether to display in running mode (input field shown as static)
+         */
         void printLn1(int number, bool highlighted, bool running) {
             display.fillRect(0, 0, 84, 11, WHITE);
 
@@ -81,6 +106,15 @@ class Display {
             display.display();
         }
 
+        /** 
+         * @brief Updates the second line of the UI (kits)
+         *
+         * @note Usually just called by updateAll(), but also allows greater control over what is changed
+         *
+         * @param number      The number to display as the user input (for kits)
+         * @param highlighted Whether the input on this line should be highlighted (showing it's selected)
+         * @param running     Whether to display in running mode (input field shown as static)
+         */
         void printLn2(int number, bool highlighted, bool running) {
             display.fillRect(0, 12, 84, 11, WHITE);
 
@@ -108,6 +142,12 @@ class Display {
             display.display();
         }
 
+        /** 
+         * @brief Updates the progress bar when the machine is running
+         *
+         * @param percent     The percentage of completion to display
+         * @param running     Verifies that the progress bar should be printed (fn returns if false)
+         */
         void printProgress(int percent, bool running) {
             if(!running) return;
             if(percent > 100) percent = 100;
@@ -152,6 +192,12 @@ class Display {
             display.display();
         }
 
+        /**
+         * @brief Updates the start/stop button
+         *
+         * @param highlighted Whether the button is currently highlighted (showing it's selected)
+         * @param running     Whether the machine is currently running (to display "Start" vs "Stop")
+         */
         void printButton(bool highlighted, bool running) {
             display.fillRect(25, 37, 6*5+3, 8*1+3, WHITE);
 
@@ -174,6 +220,9 @@ class Display {
             display.display();
         }
 
+        /**
+         * @brief Displays a screen recognizing that the safety interlock switch has been pressed
+         */
         void showPaused() {
             display.clearDisplay();
 
